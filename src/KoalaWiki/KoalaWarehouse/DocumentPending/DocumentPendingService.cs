@@ -213,20 +213,47 @@ public class DocumentPendingService
         history.AddUserMessage(prompt);
 
         var fileFunction = new FileFunction(path);
-        history.AddUserMessage($"The following is the list of contents of the pre-read files <files>{await fileFunction.ReadFilesAsync(catalog.DependentFile.ToArray())}</files>,Now you can continue to generate the document and go all out to produce more detailed document content.");
+        history.AddUserMessage(
+            $"The following is the list of contents of the pre-read files <files>{await fileFunction.ReadFilesAsync(catalog.DependentFile.ToArray())}</files>,Now you can continue to generate the document and go all out to produce more detailed document content.");
+
 
         var sr = new StringBuilder();
 
-        await foreach (var i in chat.GetStreamingChatMessageContentsAsync(history, new OpenAIPromptExecutionSettings()
-                       {
-                           ToolCallBehavior = ToolCallBehavior.AutoInvokeKernelFunctions,
-                           MaxTokens = DocumentsService.GetMaxTokens(OpenAIOptions.ChatModel),
-                           Temperature = 0.5,
-                       }, kernel))
+        var settings = new OpenAIPromptExecutionSettings()
+        {
+            ToolCallBehavior = ToolCallBehavior.AutoInvokeKernelFunctions,
+            MaxTokens = DocumentsService.GetMaxTokens(OpenAIOptions.ChatModel),
+            Temperature = 0.5,
+        };
+
+        await foreach (var i in chat.GetStreamingChatMessageContentsAsync(history, settings, kernel))
         {
             if (!string.IsNullOrEmpty(i.Content))
             {
                 sr.Append(i.Content);
+            }
+        }
+
+        if (DocumentOptions.RefineAndEnhanceQuality)
+        {
+            history.AddAssistantMessage(sr.ToString());
+            history.AddUserMessage(
+                """
+                Create thorough documentation that:
+                - Covers all key functionality with precise technical details
+                - Includes practical code examples and usage patterns  
+                - Ensures completeness without gaps or omissions
+                - Maintains clarity and professional quality throughout
+                Please do your best and spare no effort.
+                """);
+
+            sr.Clear();
+            await foreach (var item in chat.GetStreamingChatMessageContentsAsync(history, settings, kernel))
+            {
+                if (!string.IsNullOrEmpty(item.Content))
+                {
+                    sr.Append(item.Content);
+                }
             }
         }
 

@@ -61,6 +61,21 @@ public class OverviewService
                 sr.Append(item.Content);
             }
         }
+        
+        if(DocumentOptions.RefineAndEnhanceQuality)
+        {
+            history.AddAssistantMessage(sr.ToString());
+            history.AddUserMessage("You need to generate more detailed new content and ensure the completeness of the content. Please do your best and spare no effort.");
+
+            sr.Clear();
+            await foreach (var item in chat.GetStreamingChatMessageContentsAsync(history, settings, kernel))
+            {
+                if (!string.IsNullOrEmpty(item.Content))
+                {
+                    sr.Append(item.Content);
+                }
+            }
+        }
 
         // 使用正则表达式将<blog></blog>中的内容提取
         var regex = new Regex(@"<blog>(.*?)</blog>", RegexOptions.Singleline);

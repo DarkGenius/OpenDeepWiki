@@ -50,6 +50,12 @@ public class DocumentOptions
     /// <returns></returns>
     public static bool EnableFileCommit { get; set; } = true;
 
+    /// <summary>
+    /// 精炼并且提高质量
+    /// </summary>
+    /// <returns></returns>
+    public static bool RefineAndEnhanceQuality { get; set; } = true;
+
     public static void InitConfig(IConfiguration configuration)
     {
         configuration.GetSection(Name).Get<DocumentOptions>();
@@ -67,6 +73,13 @@ public class DocumentOptions
             }
         }
 
+        var refineAndEnhanceQuality =
+            configuration.GetValue<string>($"REFINE_AND_ENHANCE_QUALITY");
+
+        if (!string.IsNullOrEmpty(refineAndEnhanceQuality))
+        {
+            RefineAndEnhanceQuality = bool.TryParse(refineAndEnhanceQuality, out var enable) && enable;
+        }
 
         var enableCodeDependencyAnalysis = configuration.GetValue<string>($"ENABLE_CODED_DEPENDENCY_ANALYSIS");
 

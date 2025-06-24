@@ -10,7 +10,8 @@
         "ASPNETCORE_ENVIRONMENT": "Development",
         "TASK_MAX_SIZE_PER_USER": "10",
         "ENABLE_WAREHOUSE_DESCRIPTION_TASK": "false",
-        "EnableWarehouseFunctionPromptTask": "false"
+        "EnableWarehouseFunctionPromptTask": "false",
+        "REFINE_AND_ENHANCE_QUALITY": "true"
       }
     },
     "https": {
