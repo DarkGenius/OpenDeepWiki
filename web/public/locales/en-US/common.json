@@ -343,5 +343,38 @@
       "editor": "Editor",
       "user": "User"
     }
+  },
+  "ai_input": {
+    "deep_research": "Deep Research",
+    "input_placeholder": "Enter your question...",
+    "toggle_sidebar": "Toggle Sidebar",
+    "personal_info": "Personal Information",
+    "system_settings": "Settings",
+    "logout": "Logout"
+  },
+  "admin": {
+    "management": "Management",
+    "data_statistics": "Data Statistics",
+    "user_management": "User Management",
+    "repository_management": "Repository Management",
+    "system_management": "System Management"
+  },
+  "directory": {
+    "document_directory": "Document Directory",
+    "edit_dialog_title": "Edit Directory",
+    "cancel": "Cancel",
+    "save": "Save",
+    "title_label": "Title",
+    "title_required": "Please enter title",
+    "prompt_label": "Prompt",
+    "prompt_help": "Custom AI content generation prompt",
+    "update_success": "Directory updated successfully",
+    "update_failed": "Failed to update directory",
+    "operation_failed": "Operation failed, please try again",
+    "edit": "Edit"
+  },
+  "settings": {
+    "get_user_info_failed": "Failed to get user information, please login again",
+    "load_user_info_failed": "Failed to load user information"
   }
 } 

@@ -5,6 +5,7 @@ import { Input, Button, Switch, Flex, Space, theme, Grid, Tooltip } from 'antd';
 import type { InputRef } from 'antd';
 import { SendOutlined, LoadingOutlined, UpOutlined } from '@ant-design/icons';
 import { createChatShareMessage } from '../services/chatShareMessageServce';
+import { useTranslation } from '../i18n/client';
 
 const { useBreakpoint } = Grid;
 
@@ -31,6 +32,7 @@ const OpenAILogo: React.FC<{ style?: React.CSSProperties }> = ({ style }) => (
 const AIInputBar: React.FC<AIInputBarProps> = ({ owner, name, branch, style }) => {
     const { token } = theme.useToken();
     const screens = useBreakpoint();
+    const { t } = useTranslation();
     const [isLoading, setIsLoading] = useState(false);
     const [inputValue, setInputValue] = useState('');
     const [deepResearch, setDeepResearch] = useState(false);
@@ -68,7 +70,7 @@ const AIInputBar: React.FC<AIInputBarProps> = ({ owner, name, branch, style }) =
     };
 
     // 深入推理开关的标签
-    const researchLabel = screens.sm ? '深入推理' : '';
+    const researchLabel = screens.sm ? t('ai_input.deep_research') : '';
 
     // 展开状态的容器样式
     const expandedContainerStyle = {
@@ -113,7 +115,7 @@ const AIInputBar: React.FC<AIInputBarProps> = ({ owner, name, branch, style }) =
                     value={inputValue}
                     onChange={(e) => setInputValue(e.target.value)}
                     onKeyDown={handleKeyDown}
-                    placeholder="输入问题..."
+                    placeholder={t('ai_input.input_placeholder')}
                     autoSize={{ minRows: 1, maxRows: 4 }}
                     disabled={isLoading}
                     style={{

@@ -15,7 +15,7 @@ const LanguageSwitcher = () => {
 
   const getCurrentLocale = () => {
     const locale = searchParams.get('locale');
-    return locale || 'zh-CN';
+    return locale || 'en-US';
   };
 
   const switchLanguage = (locale: string) => {

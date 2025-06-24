@@ -489,3 +489,12 @@ $RECYCLE.BIN/
 /neo4j_data
 /postgres_db
 /history
+
+# Local repositories directory
+repositories/
+
+# Local data directory (contains database)
+data/
+
+# Docker compose with secrets
+docker-compose.yml

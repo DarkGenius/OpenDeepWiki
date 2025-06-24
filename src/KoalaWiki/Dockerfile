@@ -9,6 +9,11 @@ ARG BUILD_CONFIGURATION=Release
 ARG TARGETARCH
 WORKDIR /src
 COPY ["src/KoalaWiki/KoalaWiki.csproj", "src/KoalaWiki/"]
+COPY ["KoalaWiki.Domains/KoalaWiki.Domains.csproj", "KoalaWiki.Domains/"]
+COPY ["Provider/KoalaWiki.Provider.PostgreSQL/KoalaWiki.Provider.PostgreSQL.csproj", "Provider/KoalaWiki.Provider.PostgreSQL/"]
+COPY ["Provider/KoalaWiki.Provider.Sqlite/KoalaWiki.Provider.Sqlite.csproj", "Provider/KoalaWiki.Provider.Sqlite/"]
+COPY ["Provider/KoalaWiki.Provider.SqlServer/KoalaWiki.Provider.SqlServer.csproj", "Provider/KoalaWiki.Provider.SqlServer/"]
+COPY ["KoalaWiki.Core/KoalaWiki.Core.csproj", "KoalaWiki.Core/"]
 COPY ["NuGet.Config", "."]
 RUN dotnet restore "src/KoalaWiki/KoalaWiki.csproj" -a $TARGETARCH
 COPY . .

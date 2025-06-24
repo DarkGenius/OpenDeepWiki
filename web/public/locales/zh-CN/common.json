@@ -343,5 +343,38 @@
       "editor": "编辑者",
       "user": "用户"
     }
+  },
+  "ai_input": {
+    "deep_research": "深入推理",
+    "input_placeholder": "输入问题...",
+    "toggle_sidebar": "切换侧边栏",
+    "personal_info": "个人信息",
+    "system_settings": "设置",
+    "logout": "退出登录"
+  },
+  "admin": {
+    "management": "OpenDeepWiki 管理",
+    "data_statistics": "数据统计",
+    "user_management": "用户管理",
+    "repository_management": "仓库管理",
+    "system_management": "系统管理"
+  },
+  "directory": {
+    "document_directory": "文档目录",
+    "edit_dialog_title": "编辑目录",
+    "cancel": "取消",
+    "save": "保存",
+    "title_label": "标题",
+    "title_required": "请输入标题",
+    "prompt_label": "提示词",
+    "prompt_help": "自定义AI生成内容的提示词",
+    "update_success": "目录更新成功",
+    "update_failed": "更新目录失败",
+    "operation_failed": "操作失败，请重试",
+    "edit": "编辑"
+  },
+  "settings": {
+    "get_user_info_failed": "获取用户信息失败，请重新登录",
+    "load_user_info_failed": "加载用户信息失败"
   }
 } 
