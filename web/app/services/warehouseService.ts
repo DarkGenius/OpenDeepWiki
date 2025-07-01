@@ -279,6 +279,12 @@ export async function getBranchList(
  * 此函数可在服务器组件中使用
  */
 export async function getWarehouse(page: number, pageSize: number, keyword?: string): Promise<ApiResponse<WarehouseListResponse>> {
+
+  // keyword == undefined 时，置空
+  if (keyword === undefined || keyword === 'undefined') {
+    keyword = '';
+  }
+
   // @ts-ignore
   return fetchApi<WarehouseListResponse>(API_URL + '/api/Warehouse/WarehouseList?page=' + page + '&pageSize=' + pageSize + '&keyword=' + keyword, {
     method: 'GET',
@@ -311,16 +317,12 @@ export async function documentCatalog(organizationName: string, name: string, br
  * 此函数可在服务器组件中使用
  */
 export async function documentById(owner: string, name: string, path: string, branch?: string): Promise<any> {
-  console.log(owner, name, path);
   // 构建URL，如果branch存在则添加到查询参数中
   let url = API_URL + '/api/DocumentCatalog/DocumentById?owner=' + owner + '&name=' + name + '&path=' + path;
   if (branch) {
     url += '&branch=' + branch;
   }
 
-  console.log('请求接口',url);
-  
-  
   // @ts-ignore
   return fetchApi<any>(url, {
     method: 'GET',
@@ -419,4 +421,68 @@ export async function ExportMarkdownZip(warehouseId: string) {
   return fetchApi<any>(API_URL + `/api/Warehouse/ExportMarkdownZip?warehouseId=${warehouseId}`, {
     method: 'POST'
   })
+}
+
+
+export async function Customsubmitwarehouse(data:{
+  organization: string,
+  repositoryName: string,
+  address: string,
+  branch: string,
+  gitUserName?: string,
+  gitPassword?: string,
+  email?: string
+}){
+  // @ts-ignore
+  return fetchApi<Repository>(API_URL + '/api/Warehouse/customsubmitwarehouse', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+
+
+/**
+ * 获取仓库知识图谱
+ * @param page 页码
+ * @param pageSize 每页数量
+ * @param keyword 搜索关键词
+ * @returns 仓库列表
+ */
+export async function getMiniMap(
+  owner: string,
+  name: string,
+  branch?: string
+): Promise<any> {
+  let url = `${API_URL}/api/Warehouse/minimap?owner=${owner}&name=${name}`;
+  if (branch) {
+    url += `&branch=${encodeURIComponent(branch)}`;
+  }
+  return fetchApi<any>(url);
+}
+
+
+/**
+ * 根据行号获取文件内容
+ * @param organizationName 组织名称
+ * @param name 仓库名称
+ * @param filePath 文件路径
+ * @param startLine 开始行号
+ * @param endLine 结束行号
+ * @returns 文件内容
+ */
+export async function getFileContentByLine(
+  organizationName: string,
+  name: string,
+  filePath: string,
+  startLine: number,
+  endLine: number
+) {
+  return fetchApi<any>(
+    API_URL + `/api/Warehouse/filecontentLine?organizationName=${organizationName}&name=${name}&filePath=${filePath}&startLine=${startLine}&endLine=${endLine}`,
+    {
+      method: 'GET',
+      cache: 'no-cache'
+    }
+  )
 }

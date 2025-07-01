@@ -5,6 +5,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import Sidebar from './components/Sidebar';
 import Header from './components/Header';
 import Script from 'next/script';
+import { ConfigProvider } from '@lobehub/ui';
 
 export default function AdminLayout({
   children,
@@ -46,7 +47,7 @@ export default function AdminLayout({
       }
       setIsLoading(false);
     };
-    
+
     checkLoginStatus();
   }, [router, pathname]);
 
@@ -76,53 +77,62 @@ export default function AdminLayout({
 
   return (
     <>
-      {/* 通过CDN方式引入TailwindCSS */}
-      <Script 
+      <Script
         id="tailwind-cdn"
-        src="https://cdn.tailwindcss.com"
+        src="/tailwindcss.js"
         strategy="beforeInteractive"
       />
-      
-      <div style={{ 
-        display: 'flex', 
-        height: '100vh', 
-        backgroundColor: '#f7f9fc' 
-      }}>
-        <Sidebar 
-          isSidebarOpen={isSidebarOpen} 
-          selectedKey={getSelectedKey()} 
-        />
-        
-        <div style={{ 
-          display: 'flex', 
-          flexDirection: 'column', 
-          flex: 1, 
-          marginLeft: isSidebarOpen ? '16rem' : '5rem',
-          transition: 'all 0.3s'
+      <ConfigProvider
+        config={{
+          proxy: 'custom',
+          customCdnFn: (e: { pkg: string, version: string, path: string }) => {
+            console.log(e);
+            return `/${e.pkg}/${e.version}/${e.path}`;
+          }
+        }}
+      >
+
+        <div style={{
+          display: 'flex',
+          height: '100vh',
+          backgroundColor: '#f7f9fc'
         }}>
-          <Header 
-            toggleSidebar={toggleSidebar} 
-            userName={userName} 
-            onLogout={handleLogout} 
+          <Sidebar
+            isSidebarOpen={isSidebarOpen}
+            selectedKey={getSelectedKey()}
           />
-          
-          <main style={{
+
+          <div style={{
+            display: 'flex',
+            flexDirection: 'column',
             flex: 1,
-            overflow: 'auto',
-            padding: '1.5rem'
+            marginLeft: isSidebarOpen ? '16rem' : '5rem',
+            transition: 'all 0.3s'
           }}>
-            <div style={{
-              backgroundColor: 'white',
-              borderRadius: '0.5rem',
-              boxShadow: '0 1px 3px rgba(0, 0, 0, 0.05)',
-              padding: '1.5rem',
-              minHeight: 'calc(100vh - 8rem)'
+            <Header
+              toggleSidebar={toggleSidebar}
+              userName={userName}
+              onLogout={handleLogout}
+            />
+
+            <main style={{
+              flex: 1,
+              overflow: 'auto',
+              padding: '1.5rem'
             }}>
-              {children}
-            </div>
-          </main>
+              <div style={{
+                backgroundColor: 'white',
+                borderRadius: '0.5rem',
+                boxShadow: '0 1px 3px rgba(0, 0, 0, 0.05)',
+                padding: '1.5rem',
+                minHeight: 'calc(100vh - 8rem)'
+              }}>
+                {children}
+              </div>
+            </main>
+          </div>
         </div>
-      </div>
+      </ConfigProvider>
     </>
   );
 } 

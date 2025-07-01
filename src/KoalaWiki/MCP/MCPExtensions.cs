@@ -109,12 +109,15 @@ public static class MCPExtensions
                     var owner = context.Request.Query["owner"].ToString();
                     var name = context.Request.Query["name"].ToString();
 
-                    serverOptions.InitializationTimeout = TimeSpan.FromSeconds(300);
+                    serverOptions.InitializationTimeout = TimeSpan.FromSeconds(600);
                     serverOptions.Capabilities!.Experimental = new Dictionary<string, object>();
                     serverOptions.Capabilities.Experimental.Add("owner", owner);
                     serverOptions.Capabilities.Experimental.Add("name", name);
                     await Task.CompletedTask;
                 };
+
+                options.Stateless = true;
+                
             });
 
         return service;

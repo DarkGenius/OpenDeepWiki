@@ -17,7 +17,7 @@ public class EnhancedDependencyAnalyzer
         _basePath = basePath;
         
         // 注册语义分析器
-        RegisterAnalyzer(new CSharpSemanticAnalyzer());
+        // RegisterAnalyzer(new CSharpSemanticAnalyzer());
         RegisterAnalyzer(new GoSemanticAnalyzer());
         RegisterAnalyzer(new PythonSemanticAnalyzer());
         RegisterAnalyzer(new JavaScriptSemanticAnalyzer());

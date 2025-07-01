@@ -1,6 +1,18 @@
+'use server'
 import { notFound } from 'next/navigation';
 import { Metadata } from 'next';
+import { headers } from 'next/headers';
 import 'katex/dist/katex.min.css';
+
+// Markdown 编译器导入
+import { remark } from 'remark';
+import remarkGfm from 'remark-gfm';
+import remarkMath from 'remark-math';
+import remarkRehype from 'remark-rehype';
+import rehypeKatex from 'rehype-katex';
+import rehypeSlug from 'rehype-slug';
+import rehypeStringify from 'rehype-stringify';
+import rehypeRaw from 'rehype-raw';
 
 // 直接导入工具函数，避免导入客户端组件
 import { extractHeadings, createAnchorItems } from '../../../components/document/utils/headingUtils';
@@ -8,9 +20,35 @@ import { extractHeadings, createAnchorItems } from '../../../components/document
 // 导入文档服务和类型
 import { documentById, getWarehouseOverview } from '../../../services/warehouseService';
 
-// 导入客户端组件和类型
+// 导入客户端组件和服务端组件
 import DocumentPageClient from './DocumentPageClient';
-import { DocumentPageProps, DocumentData, Heading } from './types';
+import { DocumentData, Heading } from './types';
+
+// 编译 Markdown 内容为 HTML
+async function compileMarkdownToHtml(markdown: string): Promise<string> {
+  try {
+    if (!markdown || markdown.trim() === '') {
+      return '<p>暂无内容</p>';
+    }
+  } catch (error) {
+    console.error('Markdown 编译错误:', error);
+    return `
+      <div style="
+        background-color: #fff2f0; 
+        border: 1px solid #ffccc7; 
+        border-radius: 6px; 
+        padding: 16px;
+        color: #a8071a;
+        margin: 16px 0;
+      ">
+        <h4 style="margin: 0 0 8px 0;">Markdown 编译失败</h4>
+        <p style="margin: 0; font-size: 14px;">
+          ${error instanceof Error ? error.message : '未知错误'}
+        </p>
+      </div>
+    `;
+  }
+}
 
 // 生成SEO友好的描述
 function generateSEODescription(document: DocumentData, owner: string, name: string, path: string): string {
@@ -96,10 +134,41 @@ function generateStructuredData(document: DocumentData, owner: string, name: str
   };
 }
 
+// 检测是否为搜索引擎爬虫
+function isSearchEngineBot(userAgent: string): boolean {
+  const searchEngineBots = [
+    'googlebot',
+    'bingbot',
+    'slurp', // Yahoo
+    'duckduckbot',
+    'baiduspider',
+    'yandexbot',
+    'sogou',
+    'exabot',
+    'facebookexternalhit',
+    'twitterbot',
+    'linkedinbot',
+    'whatsapp',
+    'telegram',
+    'applebot',
+    'pingdom',
+    'uptimerobot'
+  ];
+  
+  const lowerUserAgent = userAgent.toLowerCase();
+  return searchEngineBots.some(bot => lowerUserAgent.includes(bot));
+}
+
 // 生成页面元数据
-export async function generateMetadata({ params, searchParams }: any): Promise<Metadata> {
-  const { owner, name, path } = params;
-  const { branch } = searchParams;
+export async function generateMetadata({ 
+  params, 
+  searchParams 
+}: {
+  params: Promise<{ owner: string; name: string; path: string }>;
+  searchParams: Promise<{ branch?: string }>;
+}): Promise<Metadata> {
+  const { owner, name, path } = await params;
+  const { branch } = await searchParams;
 
   try {
     // 并行获取文档数据和仓库概览
@@ -130,7 +199,7 @@ export async function generateMetadata({ params, searchParams }: any): Promise<M
           address: false,
           telephone: false,
         },
-        metadataBase: new URL(process.env.NEXT_PUBLIC_BASE_URL || 'https://koalawiki.com'),
+        metadataBase: new URL(process.env.NEXT_PUBLIC_BASE_URL || 'https://opendeep.wiki'),
         alternates: {
           canonical: url,
         },
@@ -207,7 +276,7 @@ export async function generateMetadata({ params, searchParams }: any): Promise<M
     authors: [{ name: owner }],
     creator: owner,
     publisher: 'KoalaWiki',
-    metadataBase: new URL(process.env.NEXT_PUBLIC_BASE_URL || 'https://koalawiki.com'),
+    metadataBase: new URL(process.env.NEXT_PUBLIC_BASE_URL || 'https://opendeep.wiki'),
     openGraph: {
       title: defaultTitle,
       description: defaultDescription,
@@ -227,9 +296,18 @@ export async function generateMetadata({ params, searchParams }: any): Promise<M
   };
 }
 
-export default async function DocumentPage({ params, searchParams }: any) {
-  const { owner, name, path } = params;
-  const { branch } = searchParams;
+export default async function DocumentPage({ 
+  params, 
+  searchParams 
+}: {
+  params: Promise<{ owner: string; name: string; path: string }>;
+  searchParams: Promise<{ branch?: string }>;
+}) {
+  const { owner, name, path } = await params;
+  const { branch } = await searchParams;
+
+  // 获取请求头信息
+  const headersList = await headers();
 
   // 在服务端获取文档数据
   let document: DocumentData | null = null;
@@ -258,32 +336,24 @@ export default async function DocumentPage({ params, searchParams }: any) {
   if (error && (error.includes('404') || error.includes('未找到'))) {
     notFound();
   }
-
   // 生成目录锚点项
   const anchorItems = createAnchorItems(headings);
 
+  // 共同的props
+  const commonProps = {
+    document,
+    error,
+    headings,
+    anchorItems,
+    owner,
+    name,
+    path,
+    branch
+  };
+
   return (
     <>
-      {/* 结构化数据 */}
-      {structuredData && (
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{
-            __html: JSON.stringify(structuredData)
-          }}
-        />
-      )}
-      
-      <DocumentPageClient
-        document={document}
-        error={error}
-        headings={headings}
-        anchorItems={anchorItems}
-        owner={owner}
-        name={name}
-        path={path}
-        branch={branch}
-      />
+      <DocumentPageClient {...commonProps} />
     </>
   );
 }

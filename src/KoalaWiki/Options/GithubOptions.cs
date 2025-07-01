@@ -11,8 +11,14 @@ public class GithubOptions
 
     public static void InitConfig(IConfiguration configuration)
     {
-        ClientId = configuration["Github:ClientId"] ?? configuration["GITHUB_CLIENT_ID"];
-        ClientSecret = configuration["Github:ClientSecret"] ?? configuration["GITHUB_CLIENT_SECRET"];
-        Token = configuration["Github:Token"] ?? configuration["GITHUB_TOKEN"];
+        ClientId = string.IsNullOrEmpty(configuration["Github:ClientId"])
+            ? configuration["GITHUB_CLIENT_ID"]
+            : configuration["Github:ClientId"];
+        ClientSecret = string.IsNullOrEmpty(configuration["Github:ClientSecret"])
+            ? configuration["GITHUB_CLIENT_SECRET"]
+            : configuration["Github:ClientSecret"];
+        Token = string.IsNullOrEmpty(configuration["Github:Token"])
+            ? configuration["GITHUB_TOKEN"]
+            : configuration["Github:Token"];
     }
 }

@@ -33,7 +33,6 @@ import {
 } from '@ant-design/icons';
 import { getLastWarehouse } from '../services/warehouseService';
 import { Repository } from '../types';
-import { homepage } from '../const/urlconst';
 import { useTranslation } from '../i18n/client';
 
 const { Text, Title } = Typography;
@@ -145,7 +144,6 @@ const LastRepoModal: React.FC<LastRepoModalProps> = ({ open, onCancel }) => {
         >
           <div style={{ 
             padding: `${token.paddingMD}px ${token.paddingLG}px`,
-            borderBottom: `1px solid ${token.colorBorderSecondary}`,
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center'
@@ -164,7 +162,6 @@ const LastRepoModal: React.FC<LastRepoModalProps> = ({ open, onCancel }) => {
           </div>
           
           <Descriptions
-            bordered
             size="middle"
             column={1}
             labelStyle={{ 

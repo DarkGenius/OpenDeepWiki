@@ -1,8 +1,8 @@
 import { Button, Form, Input, Modal, Select, message, Spin, Divider, Space, Switch, Typography, theme, Radio, Upload, Alert } from 'antd';
 import { useState, useEffect } from 'react';
 import { RepositoryFormValues } from '../types';
-import { submitWarehouse, UploadAndSubmitWarehouse, getBranchList } from '../services';
-import { GithubOutlined, LockOutlined, UserOutlined, LinkOutlined, BranchesOutlined, UploadOutlined, FileZipOutlined, InboxOutlined, ReloadOutlined } from '@ant-design/icons';
+import { submitWarehouse, UploadAndSubmitWarehouse, getBranchList, Customsubmitwarehouse } from '../services';
+import { GithubOutlined, LockOutlined, UserOutlined, LinkOutlined, BranchesOutlined, UploadOutlined, FileZipOutlined, InboxOutlined, ReloadOutlined, SettingOutlined } from '@ant-design/icons';
 import { useTranslation } from '../i18n/client';
 
 const { Text, Title } = Typography;
@@ -47,6 +47,17 @@ const RepositoryForm: React.FC<RepositoryFormProps> = ({
       if (submitType === 'git') {
         // 使用Git仓库地址提交
         const response = await submitWarehouse(values) as any;
+
+        if (response.data.code === 200) {
+          message.success(t('repository.form.success_message', '仓库添加成功'));
+          onSubmit(values);
+          form.resetFields();
+        } else {
+          message.error(response.data.message || t('repository.form.error_message', '添加失败，请重试'))
+        }
+      } else if (submitType === 'custom') {
+        // 使用自定义仓库提交
+        const response = await Customsubmitwarehouse(values) as any;
 
         if (response.data.code === 200) {
           message.success(t('repository.form.success_message', '仓库添加成功'));
@@ -229,16 +240,25 @@ const RepositoryForm: React.FC<RepositoryFormProps> = ({
       form.setFieldsValue({
         organization: undefined,
         repositoryName: undefined,
+        fileUrl: undefined,
+        email: undefined
+      });
+      setFileList([]);
+    } else if (e.target.value === 'custom') {
+      form.setFieldsValue({
         fileUrl: undefined
       });
       setFileList([]);
+      setUploadMethod('url');
     } else {
+      // upload类型
       form.setFieldsValue({
         address: undefined,
         branch: 'main',
         enableGitAuth: false,
         gitUserName: undefined,
-        gitPassword: undefined
+        gitPassword: undefined,
+        email: undefined
       });
       setEnableGitAuth(false);
       setBranches([]);
@@ -331,7 +351,9 @@ const RepositoryForm: React.FC<RepositoryFormProps> = ({
         <Space>
           {submitType === 'git' ?
             <GithubOutlined style={{ color: token.colorPrimary }} /> :
-            <FileZipOutlined style={{ color: token.colorPrimary }} />
+            submitType === 'custom' ?
+              <SettingOutlined style={{ color: token.colorPrimary }} /> :
+              <FileZipOutlined style={{ color: token.colorPrimary }} />
           }
           <Title level={5} style={{ margin: 0 }}>{t('repository.form.title')}</Title>
         </Space>
@@ -348,7 +370,7 @@ const RepositoryForm: React.FC<RepositoryFormProps> = ({
           type="primary"
           onClick={handleSubmit}
           loading={loading}
-          icon={submitType === 'git' ? <GithubOutlined /> : <UploadOutlined />}
+          icon={submitType === 'git' ? <GithubOutlined /> : submitType === 'custom' ? <SettingOutlined /> : <UploadOutlined />}
         >
           {t('repository.form.submit')}
         </Button>,
@@ -375,6 +397,7 @@ const RepositoryForm: React.FC<RepositoryFormProps> = ({
         >
           <Radio.Group onChange={handleTypeChange} value={submitType}>
             <Radio.Button value="git">{t('repository.form.git_repo')}</Radio.Button>
+            <Radio.Button value="custom">{t('repository.form.custom_repo')}</Radio.Button>
             <Radio.Button value="upload">{t('repository.form.upload_zip')}</Radio.Button>
           </Radio.Group>
         </Form.Item>
@@ -503,7 +526,148 @@ const RepositoryForm: React.FC<RepositoryFormProps> = ({
               </Space>
             )}
           </>
-          ) : (
+        ) : submitType === 'custom' ? (
+          <>
+            <Alert
+              message="自定义仓库提交"
+              description="请填写自定义仓库的详细信息，包括组织名、仓库名、Git地址等。"
+              type="info"
+              showIcon
+              style={{ marginBottom: token.marginMD }}
+            />
+
+            <Form.Item
+              name="organization"
+              label="组织名称"
+              rules={[{ required: submitType === 'custom', message: '请输入组织名称' }]}
+            >
+              <Input
+                placeholder="请输入组织名称"
+                allowClear
+              />
+            </Form.Item>
+
+            <Form.Item
+              name="repositoryName"
+              label="仓库名称"
+              rules={[{ required: submitType === 'custom', message: '请输入仓库名称' }]}
+            >
+              <Input
+                placeholder="请输入仓库名称"
+                allowClear
+              />
+            </Form.Item>
+
+            <Form.Item
+              name="address"
+              label="仓库地址"
+              rules={[{ required: submitType === 'custom', message: '请输入仓库地址' }]}
+            >
+              <Input
+                placeholder="https://github.com/user/repo.git"
+                prefix={<LinkOutlined style={{ color: token.colorTextSecondary }} />}
+                allowClear
+                onChange={handleAddressChange}
+                onBlur={e => {
+                  // 当失去焦点且地址完整时，尝试获取分支
+                  if (e.target.value && e.target.value !== lastAddress) {
+                    setLastAddress(e.target.value);
+                    fetchBranches(e.target.value);
+                  }
+                }}
+              />
+            </Form.Item>
+
+            <Form.Item
+              name="branch"
+              label={
+                <Space>
+                  <BranchesOutlined style={{ color: token.colorPrimary }} />
+                  <Text>分支</Text>
+                  <Space>
+                    <Button 
+                      type="link" 
+                      size="small" 
+                      onClick={fetchBranches} 
+                      loading={loadingBranches}
+                      icon={<ReloadOutlined />}
+                      style={{ padding: '0 4px' }}
+                    >
+                      加载分支
+                    </Button>
+                    <Button
+                      type="link"
+                      size="small"
+                      onClick={toggleBranchInputMode}
+                      style={{ padding: '0 4px' }}
+                    >
+                      {manualBranchInput ? '使用选择器' : '手动输入'}
+                    </Button>
+                  </Space>
+                </Space>
+              }
+              tooltip="选择要使用的仓库分支"
+              rules={[{ required: submitType === 'custom', message: '请选择分支' }]}
+            >
+              {manualBranchInput ? (
+                <Input
+                  placeholder="请输入分支名称"
+                  prefix={<BranchesOutlined style={{ color: token.colorTextSecondary }} />}
+                  allowClear
+                />
+              ) : (
+                <Select
+                  placeholder="选择分支"
+                  loading={loadingBranches}
+                  showSearch
+                  allowClear
+                >
+                  {branches.map(branch => (
+                    <Select.Option key={branch} value={branch}>
+                      {branch}
+                    </Select.Option>
+                  ))}
+                </Select>
+              )}
+            </Form.Item>
+
+            <Divider style={{ margin: `${token.marginMD}px 0` }} />
+
+            <Form.Item
+              name="gitUserName"
+              label="Git用户名（可选）"
+              extra={<Text type="secondary" style={{ fontSize: token.fontSizeSM }}>私有仓库需要提供用户名</Text>}
+            >
+              <Input
+                placeholder="Git用户名"
+                prefix={<UserOutlined style={{ color: token.colorTextSecondary }} />}
+                allowClear
+              />
+            </Form.Item>
+
+            <Form.Item
+              name="gitPassword"
+              label="Git密码/令牌（可选）"
+              extra={<Text type="secondary" style={{ fontSize: token.fontSizeSM }}>私有仓库需要提供密码或访问令牌</Text>}
+            >
+              <Input.Password
+                placeholder="Git密码或访问令牌"
+                prefix={<LockOutlined style={{ color: token.colorTextSecondary }} />}
+              />
+            </Form.Item>
+
+            <Form.Item
+              name="email"
+              label="邮箱（可选）"
+              rules={[{ type: 'email', message: '请输入有效的邮箱地址' }]}
+            >
+              <Input
+                placeholder="your.email@example.com"
+                allowClear
+              />
+            </Form.Item>
+          </>
+        ) : (
           <>
             <Alert
               message={t('repository.form.upload_info')}

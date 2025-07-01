@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react';
-import { Avatar, Button, Dropdown, Space, Typography, Divider, message } from 'antd';
+import { useState, useEffect} from 'react';
+import { Avatar, Button, Dropdown, Space, Typography,  message } from 'antd';
 import { 
   UserOutlined, 
   LoginOutlined, 

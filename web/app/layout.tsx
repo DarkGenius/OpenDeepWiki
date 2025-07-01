@@ -1,23 +1,8 @@
+
 import { AntdRegistry } from '@ant-design/nextjs-registry';
 import { ConfigProvider, theme } from 'antd';
 import zhCN from 'antd/locale/zh_CN';
 import enUS from 'antd/locale/en_US';
-import zhTW from 'antd/locale/zh_TW';
-import jaJP from 'antd/locale/ja_JP';
-import koKR from 'antd/locale/ko_KR';
-import deDE from 'antd/locale/de_DE';
-import frFR from 'antd/locale/fr_FR';
-import esES from 'antd/locale/es_ES';
-import itIT from 'antd/locale/it_IT';
-import ptBR from 'antd/locale/pt_BR';
-import ruRU from 'antd/locale/ru_RU';
-import arEG from 'antd/locale/ar_EG';
-import hiIN from 'antd/locale/hi_IN';
-import nlNL from 'antd/locale/nl_NL';
-import trTR from 'antd/locale/tr_TR';
-import viVN from 'antd/locale/vi_VN';
-import idID from 'antd/locale/id_ID';
-import thTH from 'antd/locale/th_TH';
 import './globals.css';
 import '@ant-design/v5-patch-for-react-19';
 import Script from 'next/script';
@@ -31,30 +16,30 @@ const websiteStructuredData = {
   '@type': 'WebSite',
   name: 'KoalaWiki',
   alternateName: 'OpenDeepWiki',
-  url: 'https://koalawiki.com',
+  url: 'https://opendeep.wiki',
   description: '专业的技术文档平台，提供开源项目文档管理、API文档生成、知识库构建等服务',
   inLanguage: ['zh-CN', 'en-US', 'zh-TW', 'ja', 'ko'],
   potentialAction: {
     '@type': 'SearchAction',
     target: {
       '@type': 'EntryPoint',
-      urlTemplate: 'https://koalawiki.com/search/{search_term_string}'
+      urlTemplate: 'https://opendeep.wiki/search/{search_term_string}'
     },
     'query-input': 'required name=search_term_string'
   },
   publisher: {
     '@type': 'Organization',
     name: 'KoalaWiki',
-    url: 'https://koalawiki.com',
+    url: 'https://opendeep.wiki',
     logo: {
       '@type': 'ImageObject',
-      url: 'https://koalawiki.com/logo.png',
+      url: 'https://opendeep.wiki/logo.png',
       width: 512,
       height: 512
     },
     sameAs: [
-      'https://github.com/koalawiki',
-      'https://twitter.com/koalawiki'
+      'https://github.com/AIDotNet',
+      'https://twitter.com/AIDotNet'
     ]
   }
 };
@@ -64,8 +49,8 @@ const organizationStructuredData = {
   '@context': 'https://schema.org',
   '@type': 'Organization',
   name: 'KoalaWiki',
-  url: 'https://koalawiki.com',
-  logo: 'https://koalawiki.com/logo.png',
+  url: 'https://opendeep.wiki',
+  logo: 'https://opendeep.wiki/logo.png',
   description: '专业的技术文档平台和知识库管理系统',
   foundingDate: '2024',
   contactPoint: {
@@ -74,8 +59,8 @@ const organizationStructuredData = {
     availableLanguage: ['Chinese', 'English', 'Japanese', 'Korean']
   },
   sameAs: [
-    'https://github.com/koalawiki',
-    'https://twitter.com/koalawiki'
+    'https://github.com/AIDotNet',
+    'https://twitter.com/AIDotNet'
   ]
 };
 
@@ -87,7 +72,7 @@ export async function generateMetadata(): Promise<Metadata> {
   // 获取翻译函数
   const { t } = await getTranslation(locale, 'common');
 
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://koalawiki.com';
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://opendeep.wiki';
 
   return {
     title: {
@@ -96,11 +81,11 @@ export async function generateMetadata(): Promise<Metadata> {
     },
     description: t('description') + ' 支持Markdown、API文档生成、多语言、版本控制等功能。',
     keywords: [
-      'KoalaWiki', 'OpenDeepWiki', '技术文档', '文档管理', 'API文档', 
+      'KoalaWiki', 'OpenDeepWiki', '技术文档', '文档管理', 'API文档',
       '知识库', '开源项目', 'Markdown', 'GitHub', 'Gitee',
       '文档平台', '在线文档', '协作文档', '版本控制', '多语言文档'
     ],
-    authors: [{ name: 'KoalaWiki Team', url: 'https://koalawiki.com' }],
+    authors: [{ name: 'KoalaWiki Team', url: 'https://opendeep.wiki' }],
     creator: 'KoalaWiki',
     publisher: 'KoalaWiki',
     applicationName: 'KoalaWiki',
@@ -116,9 +101,6 @@ export async function generateMetadata(): Promise<Metadata> {
       languages: {
         'zh-CN': '/zh-CN',
         'en-US': '/en-US',
-        'zh-TW': '/zh-TW',
-        'ja': '/ja',
-        'ko': '/ko',
       },
     },
     openGraph: {
@@ -156,18 +138,6 @@ export async function generateMetadata(): Promise<Metadata> {
         'max-image-preview': 'large',
         'max-snippet': -1,
       },
-    },
-    icons: {
-      icon: [
-        { url: '/favicon-16x16.png', sizes: '16x16', type: 'image/png' },
-        { url: '/favicon-32x32.png', sizes: '32x32', type: 'image/png' },
-      ],
-      apple: [
-        { url: '/apple-touch-icon.png', sizes: '180x180', type: 'image/png' },
-      ],
-      other: [
-        { rel: 'mask-icon', url: '/safari-pinned-tab.svg', color: '#1677ff' },
-      ],
     },
     manifest: '/site.webmanifest',
     viewport: {
@@ -212,22 +182,6 @@ export default async function RootLayout({
     switch (locale) {
       case 'zh-CN': return zhCN;
       case 'en-US': return enUS;
-      case 'zh-TW': return zhTW;
-      case 'ja': return jaJP;
-      case 'ko': return koKR;
-      case 'de': return deDE;
-      case 'fr': return frFR;
-      case 'es': return esES;
-      case 'it': return itIT;
-      case 'pt': return ptBR;
-      case 'ru': return ruRU;
-      case 'ar': return arEG;
-      case 'hi': return hiIN;
-      case 'nl': return nlNL;
-      case 'tr': return trTR;
-      case 'vi': return viVN;
-      case 'id': return idID;
-      case 'th': return thTH;
       default: return zhCN;
     }
   };
@@ -250,15 +204,14 @@ export default async function RootLayout({
         <meta name="apple-mobile-web-app-title" content="KoalaWiki" />
         <meta name="msapplication-TileColor" content="#1677ff" />
         <meta name="theme-color" content="#1677ff" />
-        
+
         {/* 图标 */}
         <link rel="icon" href="/favicon.ico" />
         <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
         <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
-        <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
         <link rel="mask-icon" href="/safari-pinned-tab.svg" color="#1677ff" />
         <link rel="manifest" href="/site.webmanifest" />
-        
+
         {/* 结构化数据 */}
         <script
           type="application/ld+json"
@@ -272,10 +225,10 @@ export default async function RootLayout({
             __html: JSON.stringify(organizationStructuredData)
           }}
         />
-        
+
         {/* 外部资源 */}
-        <script src="tailwindcss.js"></script>
-        
+        <script src="/tailwindcss.js"></script>
+
         {/* 百度统计 */}
         <Script id="baidu-analytics" strategy="afterInteractive">
           {`
@@ -288,7 +241,7 @@ export default async function RootLayout({
             })();
           `}
         </Script>
-        
+
         {/* Google Analytics (如果配置了) */}
         {process.env.NEXT_PUBLIC_GA_ID && (
           <>

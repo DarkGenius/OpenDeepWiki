@@ -1,17 +1,7 @@
 'use client'
 
-import rehypeRaw from 'rehype-raw';
-import remarkGfm from 'remark-gfm';
-import remarkToc from 'remark-toc';
-import remarkMath from 'remark-math';
-import rehypeSlug from 'rehype-slug';
-import rehypeKatex from 'rehype-katex';
-import { Flexbox } from 'react-layout-kit';
-
 import React, { ReactNode, useEffect, useRef, useState } from 'react';
 import { Markdown, Mermaid } from '@lobehub/ui';
-import { markdownElements } from './MarkdownElements';
-import { Alert, Typography } from 'antd';
 import RenderThinking from './Component';
 
 import { normalizeThinkTags,extractThinkContent } from './thinking/remarkPlugin';
@@ -49,7 +39,7 @@ const DocumentContent: React.FC<DocumentContentProps> = ({
         <RenderThinking think={think}>
         </RenderThinking>
       )}
-      <div className="markdown-content" itemProp="articleBody">
+      <div className="markdown-content">
         <Markdown
           variant='chat'
           enableCustomFootnotes={true}

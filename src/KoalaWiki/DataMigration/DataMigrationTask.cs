@@ -46,7 +46,7 @@ public class DataMigrationTask(IServiceProvider service) : BackgroundService
             Id = Guid.NewGuid().ToString("N"),
             Name = "user",
             Description = "普通用户角色",
-            IsSystemRole = true,
+            IsSystemRole = false,
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow,
         };

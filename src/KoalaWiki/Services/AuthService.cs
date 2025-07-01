@@ -72,11 +72,27 @@ public class AuthService(
 
             user.Password = string.Empty; // 清空密码
             var dto = mapper.Map<UserInfoDto>(user);
-            dto.Role = string.Join(',', roles.Select(x=>x.Name));
+            dto.Role = string.Join(',', roles.Select(x => x.Name));
 
             // 生成JWT令牌
             var token = GenerateJwtToken(user, roles);
             var refreshToken = GenerateRefreshToken(user);
+
+            // 设置到cookie
+            var tokenCookieOptions = CreateCookieOptions(jwtOptions.ExpireMinutes);
+            var refreshTokenCookieOptions = CreateCookieOptions(jwtOptions.RefreshExpireMinutes);
+
+            httpContextAccessor.HttpContext?.Response.Cookies.Append("refreshToken", refreshToken,
+                refreshTokenCookieOptions);
+            httpContextAccessor.HttpContext?.Response.Cookies.Append("token", token, tokenCookieOptions);
+
+            logger.LogInformation(
+                "用户登录成功，已设置cookie。Token长度: {TokenLength}, 环境: {Environment}, HTTPS: {IsHttps}, Secure: {Secure}, SameSite: {SameSite}",
+                token.Length,
+                configuration.GetValue<string>("ASPNETCORE_ENVIRONMENT"),
+                httpContextAccessor.HttpContext?.Request.IsHttps,
+                tokenCookieOptions.Secure,
+                tokenCookieOptions.SameSite);
 
             return new LoginDto(true, token, refreshToken, dto, null);
         }
@@ -90,9 +106,6 @@ public class AuthService(
     /// <summary>
     /// 用户注册
     /// </summary>
-    /// <param name="username">用户名</param>
-    /// <param name="email">邮箱</param>
-    /// <param name="password">密码</param>
     /// <returns>注册结果</returns>
     public async Task<LoginDto> RegisterAsync(RegisterInput input)
     {
@@ -160,6 +173,12 @@ public class AuthService(
             // 创建token
             var token = GenerateJwtToken(user, roles);
             var refreshToken = GenerateRefreshToken(user);
+
+            // 设置到cookie
+            httpContextAccessor.HttpContext?.Response.Cookies.Append("refreshToken", refreshToken,
+                CreateCookieOptions(jwtOptions.RefreshExpireMinutes));
+            httpContextAccessor.HttpContext?.Response.Cookies.Append("token", token,
+                CreateCookieOptions(jwtOptions.ExpireMinutes));
             return new LoginDto(true, token, refreshToken, dto, null);
         }
         catch (Exception ex)
@@ -239,7 +258,7 @@ public class AuthService(
                 // 获取普通用户角色
                 var userRole = await dbContext.Roles
                     .FirstOrDefaultAsync(r => r.Name == "user");
-                
+
                 await dbContext.UserInRoles.AddAsync(new UserInRole
                 {
                     UserId = user.Id,
@@ -284,10 +303,17 @@ public class AuthService(
             // 生成JWT令牌
             var jwtToken = GenerateJwtToken(user, roles);
             var refreshToken = GenerateRefreshToken(user);
-            
+
             var userDto = mapper.Map<UserInfoDto>(user);
-            
+
             userDto.Role = string.Join(',', roles.Select(x => x.Name));
+
+
+            // 设置到cookie
+            httpContextAccessor.HttpContext?.Response.Cookies.Append("refreshToken", refreshToken,
+                CreateCookieOptions(jwtOptions.RefreshExpireMinutes));
+            httpContextAccessor.HttpContext?.Response.Cookies.Append("token", jwtToken,
+                CreateCookieOptions(jwtOptions.ExpireMinutes));
 
             return new LoginDto(true, jwtToken, refreshToken, userDto, null);
         }
@@ -371,6 +397,27 @@ public class AuthService(
     // }
 
     /// <summary>
+    /// 用户退出登录
+    /// </summary>
+    /// <returns>退出结果</returns>
+    public async Task<bool> LogoutAsync()
+    {
+        try
+        {
+            // 清除cookie
+            httpContextAccessor.HttpContext?.Response.Cookies.Delete("token");
+            httpContextAccessor.HttpContext?.Response.Cookies.Delete("refreshToken");
+
+            return await Task.FromResult(true);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "用户退出登录失败");
+            return false;
+        }
+    }
+
+    /// <summary>
     /// 刷新令牌
     /// </summary>
     /// <param name="refreshToken">刷新令牌</param>
@@ -420,6 +467,12 @@ public class AuthService(
                 // 生成新的JWT令牌
                 var newToken = GenerateJwtToken(user, roles);
                 var newRefreshToken = GenerateRefreshToken(user);
+
+                // 设置到cookie
+                httpContextAccessor.HttpContext?.Response.Cookies.Append("refreshToken", newRefreshToken,
+                    CreateCookieOptions(jwtOptions.RefreshExpireMinutes));
+                httpContextAccessor.HttpContext?.Response.Cookies.Append("token", newToken,
+                    CreateCookieOptions(jwtOptions.ExpireMinutes));
 
                 return (true, newToken, newRefreshToken, null);
             }
@@ -567,6 +620,60 @@ public class AuthService(
         }
 
         return await Task.FromResult(supportedLogins);
+    }
+
+    /// <summary>
+    /// 测试方法：检查当前请求中的cookie和认证状态
+    /// </summary>
+    /// <returns>调试信息</returns>
+    public async Task<object> GetAuthDebugInfoAsync()
+    {
+        var context = httpContextAccessor.HttpContext;
+        if (context == null)
+        {
+            return new { message = "HttpContext为空" };
+        }
+
+        var tokenFromCookie = context.Request.Cookies["token"];
+        var refreshTokenFromCookie = context.Request.Cookies["refreshToken"];
+        var authHeader = context.Request.Headers["Authorization"].FirstOrDefault();
+        var isAuthenticated = context.User?.Identity?.IsAuthenticated ?? false;
+        var userName = context.User?.Identity?.Name;
+        var userId = context.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+        return await Task.FromResult(new
+        {
+            HasTokenCookie = !string.IsNullOrEmpty(tokenFromCookie),
+            TokenCookieLength = tokenFromCookie?.Length ?? 0,
+            HasRefreshTokenCookie = !string.IsNullOrEmpty(refreshTokenFromCookie),
+            RefreshTokenCookieLength = refreshTokenFromCookie?.Length ?? 0,
+            HasAuthorizationHeader = !string.IsNullOrEmpty(authHeader),
+            AuthorizationHeader = authHeader?.Substring(0, Math.Min(20, authHeader?.Length ?? 0)) + "...",
+            IsAuthenticated = isAuthenticated,
+            UserName = userName,
+            UserId = userId,
+            RequestUrl = context.Request.Path,
+            RequestMethod = context.Request.Method,
+            IsHttps = context.Request.IsHttps,
+            Environment = configuration.GetValue<string>("ASPNETCORE_ENVIRONMENT"),
+            AllCookies = context.Request.Cookies.Keys.ToArray()
+        });
+    }
+
+    /// <summary>
+    /// 创建cookie选项，根据环境调整安全设置
+    /// </summary>
+    /// <param name="expireMinutes">过期时间（分钟）</param>
+    /// <returns>cookie选项</returns>
+    private CookieOptions CreateCookieOptions(int expireMinutes)
+    {
+        return new CookieOptions
+        {
+            HttpOnly = true,
+            Secure = false, // 开发环境或HTTP时不要求HTTPS
+            SameSite = SameSiteMode.Lax, // 开发环境使用更宽松的策略
+            Expires = DateTime.UtcNow.AddMinutes(expireMinutes)
+        };
     }
 }
 

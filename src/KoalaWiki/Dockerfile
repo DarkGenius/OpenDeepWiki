@@ -15,6 +15,8 @@ COPY ["Provider/KoalaWiki.Provider.Sqlite/KoalaWiki.Provider.Sqlite.csproj", "Pr
 COPY ["Provider/KoalaWiki.Provider.SqlServer/KoalaWiki.Provider.SqlServer.csproj", "Provider/KoalaWiki.Provider.SqlServer/"]
 COPY ["KoalaWiki.Core/KoalaWiki.Core.csproj", "KoalaWiki.Core/"]
 COPY ["NuGet.Config", "."]
+COPY ["Directory.Packages.props", "."]
+COPY ["Directory.Build.props", "."]
 RUN dotnet restore "src/KoalaWiki/KoalaWiki.csproj" -a $TARGETARCH
 COPY . .
 WORKDIR "/src/src/KoalaWiki"

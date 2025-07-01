@@ -9,24 +9,118 @@ using KoalaWiki.Functions;
 using LibGit2Sharp;
 using MapsterMapper;
 using Microsoft.EntityFrameworkCore;
+using System.Text.Json;
+using KoalaWiki.Core.DataAccess;
+using KoalaWiki.Git;
+using KoalaWiki.Infrastructure;
+using Microsoft.AspNetCore.Authorization;
+using System.Security.Claims;
 
 namespace KoalaWiki.Services;
 
 [Tags("仓库管理")]
 [Route("/api/Warehouse")]
-public class WarehouseService(IKoalaWikiContext access, IMapper mapper, GitRepositoryService gitRepositoryService)
+public class WarehouseService(
+    IKoalaWikiContext koala,
+    IMapper mapper,
+    GitRepositoryService gitRepositoryService,
+    IUserContext userContext,
+    IHttpContextAccessor httpContextAccessor)
     : FastApi
 {
     /// <summary>
+    /// 检查用户对指定仓库的访问权限
+    /// </summary>
+    /// <param name="warehouseId">仓库ID</param>
+    /// <returns>是否有访问权限</returns>
+    private async Task<bool> CheckWarehouseAccessAsync(string warehouseId)
+    {
+        var currentUserId = userContext.CurrentUserId;
+        var isAdmin = httpContextAccessor.HttpContext?.User?.IsInRole("admin") ?? false;
+
+        // 管理员有所有权限
+        if (isAdmin) return true;
+
+        // 检查仓库是否存在权限分配
+        var hasPermissionAssignment = await koala.WarehouseInRoles
+            .AnyAsync(wr => wr.WarehouseId == warehouseId);
+
+        // 如果仓库没有权限分配，则是公共仓库，所有人都可以访问
+        if (!hasPermissionAssignment) return true;
+
+        // 如果用户未登录，无法访问有权限分配的仓库
+        if (string.IsNullOrEmpty(currentUserId)) return false;
+
+        // 获取用户的角色ID列表
+        var userRoleIds = await koala.UserInRoles
+            .Where(ur => ur.UserId == currentUserId)
+            .Select(ur => ur.RoleId)
+            .ToListAsync();
+
+        // 如果用户没有任何角色，无法访问有权限分配的仓库
+        if (!userRoleIds.Any()) return false;
+
+        // 检查用户角色是否有该仓库的权限
+        return await koala.WarehouseInRoles
+            .AnyAsync(wr => userRoleIds.Contains(wr.RoleId) && wr.WarehouseId == warehouseId);
+    }
+
+    /// <summary>
+    /// 检查用户对指定仓库的管理权限
+    /// </summary>
+    /// <param name="warehouseId">仓库ID</param>
+    /// <returns>是否有管理权限</returns>
+    private async Task<bool> CheckWarehouseManageAccessAsync(string warehouseId)
+    {
+        var currentUserId = userContext.CurrentUserId;
+        var isAdmin = httpContextAccessor.HttpContext?.User?.IsInRole("admin") ?? false;
+
+        // 管理员有所有权限
+        if (isAdmin) return true;
+
+        // 如果用户未登录，无管理权限
+        if (string.IsNullOrEmpty(currentUserId)) return false;
+
+        // 检查仓库是否存在权限分配
+        var hasPermissionAssignment = await koala.WarehouseInRoles
+            .AnyAsync(wr => wr.WarehouseId == warehouseId);
+
+        // 如果仓库没有权限分配，只有管理员可以管理
+        if (!hasPermissionAssignment) return false;
+
+        // 获取用户的角色ID列表
+        var userRoleIds = await koala.UserInRoles
+            .Where(ur => ur.UserId == currentUserId)
+            .Select(ur => ur.RoleId)
+            .ToListAsync();
+
+        // 如果用户没有任何角色，无管理权限
+        if (!userRoleIds.Any()) return false;
+
+        // 检查用户角色是否有该仓库的写入或删除权限（管理权限）
+        return await koala.WarehouseInRoles
+            .AnyAsync(wr => userRoleIds.Contains(wr.RoleId) &&
+                            wr.WarehouseId == warehouseId &&
+                            (wr.IsWrite || wr.IsDelete));
+    }
+
+    /// <summary>
     /// 更新仓库状态，并且重新提交
     /// </summary>
+    [EndpointSummary("更新仓库状态")]
     public async Task UpdateWarehouseStatusAsync(string warehouseId)
     {
-        await access.Warehouses
+        // 检查管理权限
+        if (!await CheckWarehouseManageAccessAsync(warehouseId))
+        {
+            throw new UnauthorizedAccessException("您没有权限管理此仓库");
+        }
+
+        await koala.Warehouses
             .Where(x => x.Id == warehouseId)
             .ExecuteUpdateAsync(x => x.SetProperty(y => y.Status, WarehouseStatus.Pending));
 
-        var warehouse = await access.Warehouses
+        var warehouse = await koala.Warehouses
             .AsNoTracking()
             .Where(x => x.Id == warehouseId)
             .FirstOrDefaultAsync();
@@ -36,6 +130,7 @@ public class WarehouseService(IKoalaWikiContext access, IMapper mapper, GitRepos
     /// 查询上次提交的仓库
     /// </summary>
     /// <returns></returns>
+    [EndpointSummary("查询上次提交的仓库")]
     public async Task<object> GetLastWarehouseAsync(string address)
     {
         address = address.Trim().TrimEnd('/').ToLower();
@@ -46,7 +141,7 @@ public class WarehouseService(IKoalaWikiContext access, IMapper mapper, GitRepos
             address += ".git";
         }
 
-        var query = await access.Warehouses
+        var query = await koala.Warehouses
             .AsNoTracking()
             .Where(x => x.Address.ToLower() == address)
             .FirstOrDefaultAsync();
@@ -72,10 +167,10 @@ public class WarehouseService(IKoalaWikiContext access, IMapper mapper, GitRepos
     {
         owner = owner.Trim().ToLower();
         name = name.Trim().ToLower();
-        var warehouse = await access.Warehouses
+        var warehouse = await koala.Warehouses
             .AsNoTracking()
             .Where(x => x.Name.ToLower() == name && x.OrganizationName.ToLower() == owner &&
-                        x.Status == WarehouseStatus.Completed)
+                        (x.Status == WarehouseStatus.Completed || x.Status == WarehouseStatus.Processing))
             .FirstOrDefaultAsync();
 
         // 如果没有找到仓库，返回空列表
@@ -84,7 +179,7 @@ public class WarehouseService(IKoalaWikiContext access, IMapper mapper, GitRepos
             throw new NotFoundException($"仓库不存在，请检查仓库名称和组织名称:{owner} {name}");
         }
 
-        var commit = await access.DocumentCommitRecords.Where(x => x.WarehouseId == warehouse.Id)
+        var commit = await koala.DocumentCommitRecords.Where(x => x.WarehouseId == warehouse.Id)
             .ToListAsync();
 
         var value = new StringBuilder();
@@ -110,6 +205,7 @@ public class WarehouseService(IKoalaWikiContext access, IMapper mapper, GitRepos
     /// <summary>
     /// 从URL下载文件到本地
     /// </summary>
+    [EndpointSummary("从URL下载文件到本地")]
     private async Task<FileInfo> DownloadFileFromUrlAsync(string fileUrl, string organization, string repositoryName)
     {
         using var httpClient = new HttpClient();
@@ -127,7 +223,8 @@ public class WarehouseService(IKoalaWikiContext access, IMapper mapper, GitRepos
 
             // 优先从响应头中提取文件名
             string fileName = string.Empty;
-            if (response.Content.Headers.ContentDisposition != null && !string.IsNullOrEmpty(response.Content.Headers.ContentDisposition.FileName))
+            if (response.Content.Headers.ContentDisposition != null &&
+                !string.IsNullOrEmpty(response.Content.Headers.ContentDisposition.FileName))
             {
                 fileName = response.Content.Headers.ContentDisposition.FileName.Trim('"');
             }
@@ -165,12 +262,14 @@ public class WarehouseService(IKoalaWikiContext access, IMapper mapper, GitRepos
                     }
                 }
             }
+
             // 如果响应头没有文件名，则从URL中提取
             if (string.IsNullOrEmpty(fileName))
             {
                 var uri = new Uri(fileUrl);
                 fileName = Path.GetFileName(uri.LocalPath);
             }
+
             string suffix;
 
             if (string.IsNullOrEmpty(fileName) || !fileName.Contains('.'))
@@ -230,6 +329,7 @@ public class WarehouseService(IKoalaWikiContext access, IMapper mapper, GitRepos
     /// <summary>
     /// 上传并且提交仓库
     /// </summary>
+    [EndpointSummary("上传并且提交仓库")]
     public async Task UploadAndSubmitWarehouseAsync(HttpContext context)
     {
         if (!DocumentOptions.EnableFileCommit)
@@ -243,9 +343,10 @@ public class WarehouseService(IKoalaWikiContext access, IMapper mapper, GitRepos
         if (string.IsNullOrEmpty(organization) || string.IsNullOrEmpty(repositoryName))
         {
             throw new Exception("组织名称和仓库名称不能为空");
-        }        // 检查是否是URL下载方式
+        } // 检查是否是URL下载方式
+
         var fileUrl = context.Request.Form["fileUrl"].ToString();
-        
+
         FileInfo fileInfo;
 
         if (!string.IsNullOrEmpty(fileUrl))
@@ -343,7 +444,7 @@ public class WarehouseService(IKoalaWikiContext access, IMapper mapper, GitRepos
             }
         }
 
-        var value = await access.Warehouses.FirstOrDefaultAsync(x =>
+        var value = await koala.Warehouses.FirstOrDefaultAsync(x =>
             x.OrganizationName == organization && x.Name == repositoryName);
         // 判断这个仓库是否已经添加
         if (value?.Status is WarehouseStatus.Completed)
@@ -360,7 +461,7 @@ public class WarehouseService(IKoalaWikiContext access, IMapper mapper, GitRepos
         }
 
         // 删除旧的仓库
-        var oldWarehouse = await access.Warehouses
+        var oldWarehouse = await koala.Warehouses
             .Where(x => x.OrganizationName == organization && x.Name == repositoryName)
             .ExecuteDeleteAsync();
 
@@ -380,9 +481,9 @@ public class WarehouseService(IKoalaWikiContext access, IMapper mapper, GitRepos
             Id = Guid.NewGuid().ToString()
         };
 
-        await access.Warehouses.AddAsync(entity);
+        await koala.Warehouses.AddAsync(entity);
 
-        await access.SaveChangesAsync();
+        await koala.SaveChangesAsync();
 
         await context.Response.WriteAsJsonAsync(new
         {
@@ -394,6 +495,7 @@ public class WarehouseService(IKoalaWikiContext access, IMapper mapper, GitRepos
     /// <summary>
     /// 提交仓库
     /// </summary>
+    [EndpointSummary("提交仓库")]
     public async Task SubmitWarehouseAsync(WarehouseInput input, HttpContext context)
     {
         try
@@ -413,7 +515,7 @@ public class WarehouseService(IKoalaWikiContext access, IMapper mapper, GitRepos
 
             var repositoryName = names[^1].Replace(".git", "").ToLower();
 
-            var value = await access.Warehouses.FirstOrDefaultAsync(x =>
+            var value = await koala.Warehouses.FirstOrDefaultAsync(x =>
                 x.OrganizationName.ToLower() == organization && x.Name.ToLower() == repositoryName &&
                 x.Branch == input.Branch &&
                 x.Status == WarehouseStatus.Completed);
@@ -433,7 +535,7 @@ public class WarehouseService(IKoalaWikiContext access, IMapper mapper, GitRepos
             }
             else if (!string.IsNullOrEmpty(input.Branch))
             {
-                var branch = await access.Warehouses
+                var branch = await koala.Warehouses
                     .AsNoTracking()
                     .Where(x => x.Branch == input.Branch && x.OrganizationName == organization &&
                                 x.Name == repositoryName)
@@ -446,7 +548,7 @@ public class WarehouseService(IKoalaWikiContext access, IMapper mapper, GitRepos
             }
 
             // 删除旧的仓库
-            var oldWarehouse = await access.Warehouses
+            var oldWarehouse = await koala.Warehouses
                 .Where(x => x.OrganizationName == organization &&
                             x.Name == repositoryName && x.Branch == input.Branch)
                 .ExecuteDeleteAsync();
@@ -463,9 +565,88 @@ public class WarehouseService(IKoalaWikiContext access, IMapper mapper, GitRepos
             entity.CreatedAt = DateTime.UtcNow;
             entity.OptimizedDirectoryStructure = string.Empty;
             entity.Id = Guid.NewGuid().ToString();
-            await access.Warehouses.AddAsync(entity);
+            await koala.Warehouses.AddAsync(entity);
 
-            await access.SaveChangesAsync();
+            await koala.SaveChangesAsync();
+
+            await context.Response.WriteAsJsonAsync(new
+            {
+                code = 200,
+                message = "提交成功"
+            });
+        }
+        catch (Exception e)
+        {
+            await context.Response.WriteAsJsonAsync(new
+            {
+                code = 500,
+                message = e.Message
+            });
+        }
+    }
+
+    [EndpointSummary("自定义提交仓库")]
+    public async Task CustomSubmitWarehouseAsync(CustomWarehouseInput input, HttpContext context)
+    {
+        try
+        {
+            input.Organization = input.Organization.Trim().ToLower();
+
+            var repositoryName = input.RepositoryName.Trim().ToLower();
+
+            var value = await koala.Warehouses.FirstOrDefaultAsync(x =>
+                x.OrganizationName.ToLower() == input.Organization && x.Name.ToLower() == repositoryName &&
+                x.Branch == input.Branch &&
+                x.Status == WarehouseStatus.Completed);
+
+            // 判断这个仓库是否已经添加
+            if (value?.Status is WarehouseStatus.Completed)
+            {
+                throw new Exception("该名称渠道已存在且处于完成状态，不可重复创建");
+            }
+            else if (value?.Status is WarehouseStatus.Pending)
+            {
+                throw new Exception("该名称渠道已存在且处于待处理状态，请等待处理完成");
+            }
+            else if (value?.Status is WarehouseStatus.Processing)
+            {
+                throw new Exception("该名称渠道已存在且正在处理中，请稍后再试");
+            }
+            else if (!string.IsNullOrEmpty(input.Branch))
+            {
+                var branch = await koala.Warehouses
+                    .AsNoTracking()
+                    .Where(x => x.Branch == input.Branch && x.OrganizationName == input.Organization &&
+                                x.Name == repositoryName)
+                    .FirstOrDefaultAsync();
+
+                if (branch is { Status: WarehouseStatus.Completed or WarehouseStatus.Processing })
+                {
+                    throw new Exception("该分支已经存在");
+                }
+            }
+
+            // 删除旧的仓库
+            var oldWarehouse = await koala.Warehouses
+                .Where(x => x.OrganizationName == input.Organization &&
+                            x.Name == repositoryName && x.Branch == input.Branch)
+                .ExecuteDeleteAsync();
+
+            var entity = mapper.Map<Warehouse>(input);
+            entity.Name = repositoryName;
+            entity.OrganizationName = input.Organization;
+            entity.Description = string.Empty;
+            entity.Version = string.Empty;
+            entity.Error = string.Empty;
+            entity.Prompt = string.Empty;
+            entity.Branch = input.Branch;
+            entity.Type = "git";
+            entity.CreatedAt = DateTime.UtcNow;
+            entity.OptimizedDirectoryStructure = string.Empty;
+            entity.Id = Guid.NewGuid().ToString();
+            await koala.Warehouses.AddAsync(entity);
+
+            await koala.SaveChangesAsync();
 
             await context.Response.WriteAsJsonAsync(new
             {
@@ -486,15 +667,17 @@ public class WarehouseService(IKoalaWikiContext access, IMapper mapper, GitRepos
     /// <summary>
     /// 获取仓库概述
     /// </summary>
+    [EndpointSummary("获取仓库概述")]
     public async Task GetWarehouseOverviewAsync(string owner, string name, string? branch, HttpContext context)
     {
         owner = owner.Trim().ToLower();
         name = name.Trim().ToLower();
 
-        var warehouse = await access.Warehouses
+        var warehouse = await koala.Warehouses
             .AsNoTracking()
             .Where(x => x.Name.ToLower() == name && x.OrganizationName.ToLower() == owner &&
-                        (string.IsNullOrEmpty(branch) || x.Branch == branch) && x.Status == WarehouseStatus.Completed)
+                        (string.IsNullOrEmpty(branch) || x.Branch == branch) &&
+                        (x.Status == WarehouseStatus.Completed || x.Status == WarehouseStatus.Processing))
             .FirstOrDefaultAsync();
 
         // 如果没有找到仓库，返回空列表
@@ -503,7 +686,19 @@ public class WarehouseService(IKoalaWikiContext access, IMapper mapper, GitRepos
             throw new NotFoundException($"仓库不存在，请检查仓库名称和组织名称:{owner} {name} {branch}");
         }
 
-        var document = await access.Documents
+        // 检查用户权限
+        if (!await CheckWarehouseAccessAsync(warehouse.Id))
+        {
+            context.Response.StatusCode = 403;
+            await context.Response.WriteAsJsonAsync(new
+            {
+                code = 403,
+                message = "您没有权限访问此仓库"
+            });
+            return;
+        }
+
+        var document = await koala.Documents
             .AsNoTracking()
             .Where(x => x.WarehouseId == warehouse.Id)
             .FirstOrDefaultAsync();
@@ -513,7 +708,7 @@ public class WarehouseService(IKoalaWikiContext access, IMapper mapper, GitRepos
             throw new NotFoundException("没有找到文档, 可能在生成中或者已经出现错误");
         }
 
-        var overview = await access.DocumentOverviews.FirstOrDefaultAsync(x => x.DocumentId == document.Id);
+        var overview = await koala.DocumentOverviews.FirstOrDefaultAsync(x => x.DocumentId == document.Id);
 
         if (overview == null)
         {
@@ -527,6 +722,79 @@ public class WarehouseService(IKoalaWikiContext access, IMapper mapper, GitRepos
         });
     }
 
+
+    /// <summary>
+    /// 获取知识图谱
+    /// </summary>
+    /// <returns></returns>
+    [EndpointSummary("仓库管理：获取思维导图")]
+    [AllowAnonymous]
+    public async Task<ResultDto<MiniMapResult>> GetMiniMapAsync(
+        string owner,
+        string name,
+        string? branch = "")
+    {
+        var warehouse = await koala.Warehouses
+            .AsNoTracking()
+            .FirstOrDefaultAsync(r => r.OrganizationName == owner && r.Name == name &&
+                                      (r.Status == WarehouseStatus.Completed ||
+                                       r.Status == WarehouseStatus.Processing) &&
+                                      (string.IsNullOrEmpty(branch) || r.Branch == branch));
+
+        var miniMap = await koala.MiniMaps
+            .AsNoTracking()
+            .FirstOrDefaultAsync(x => x.WarehouseId.ToLower() == warehouse.Id.ToLower());
+
+        if (miniMap == null)
+        {
+            return new ResultDto<MiniMapResult>(200, "没有找到知识图谱", new MiniMapResult());
+        }
+
+        var result = JsonSerializer.Deserialize<MiniMapResult>(miniMap.Value, JsonSerializerOptions.Web);
+
+        // 组成点击跳转地址
+        var address = warehouse.Address = warehouse.Address.Replace(".git", "").TrimEnd('/').ToLower();
+
+        if (address.Contains("github.com"))
+        {
+            address += "/tree/" + warehouse.Branch + "/";
+        }
+        else if (address.Contains("gitee.com"))
+        {
+            address += "/tree/" + warehouse.Branch + "/";
+        }
+
+        // TODO: 需要根据仓库类型判断跳转地址
+
+        foreach (var v in result.Nodes)
+        {
+            // 使用递归修改v.Url
+            void UpdateUrl(MiniMapResult node)
+            {
+                if (node.Url.StartsWith("http", StringComparison.OrdinalIgnoreCase))
+                {
+                    // 应该删除前缀
+                    node.Url = node.Url.Replace(warehouse.Address, string.Empty, StringComparison.OrdinalIgnoreCase);
+                }
+
+                if (node.Url != null && !node.Url.StartsWith("http", StringComparison.OrdinalIgnoreCase))
+                {
+                    node.Url = address + node.Url.TrimStart('/');
+                }
+
+                foreach (var child in node.Nodes)
+                {
+                    UpdateUrl(child);
+                }
+            }
+
+            UpdateUrl(v);
+        }
+
+        return new ResultDto<MiniMapResult>(200, "获取知识图谱成功", result);
+    }
+
+
     /// <summary>
     /// 获取仓库列表的异步方法，支持分页和关键词搜索。
     /// </summary>
@@ -534,9 +802,10 @@ public class WarehouseService(IKoalaWikiContext access, IMapper mapper, GitRepos
     /// <param name="pageSize">每页显示的记录数。</param>
     /// <param name="keyword">搜索关键词，用于匹配仓库名称或地址。</param>
     /// <returns>返回一个包含总记录数和当前页仓库数据的分页结果对象。</returns>
+    [EndpointSummary("获取仓库列表")]
     public async Task<PageDto<WarehouseDto>> GetWarehouseListAsync(int page, int pageSize, string keyword)
     {
-        var query = access.Warehouses
+        var query = koala.Warehouses
             .AsNoTracking()
             .Where(x => x.Status == WarehouseStatus.Completed || x.Status == WarehouseStatus.Processing);
 
@@ -548,6 +817,60 @@ public class WarehouseService(IKoalaWikiContext access, IMapper mapper, GitRepos
                 x.Name.ToLower().Contains(keyword) || x.Address.ToLower().Contains(keyword) ||
                 x.Description.ToLower().Contains(keyword));
         }
+
+        // 权限过滤：如果仓库存在WarehouseInRole分配，则只有拥有相应角色的用户才能访问
+        var currentUserId = userContext.CurrentUserId;
+        var isAdmin = httpContextAccessor.HttpContext?.User?.IsInRole("admin") ?? false;
+
+        if (!isAdmin && !string.IsNullOrEmpty(currentUserId))
+        {
+            // 获取用户的角色ID列表
+            var userRoleIds = await koala.UserInRoles
+                .Where(ur => ur.UserId == currentUserId)
+                .Select(ur => ur.RoleId)
+                .ToListAsync();
+
+            // 如果用户没有任何角色，只能看到公共仓库（没有权限分配的仓库）
+            if (!userRoleIds.Any())
+            {
+                var publicWarehouseIds = await koala.Warehouses
+                    .Where(w => !koala.WarehouseInRoles.Any(wr => wr.WarehouseId == w.Id))
+                    .Select(w => w.Id)
+                    .ToListAsync();
+
+                query = query.Where(x => publicWarehouseIds.Contains(x.Id));
+            }
+            else
+            {
+                // 用户可以访问的仓库：
+                // 1. 通过角色权限可以访问的仓库
+                // 2. 没有任何权限分配的公共仓库
+                var accessibleWarehouseIds = await koala.WarehouseInRoles
+                    .Where(wr => userRoleIds.Contains(wr.RoleId))
+                    .Select(wr => wr.WarehouseId)
+                    .Distinct()
+                    .ToListAsync();
+
+                var publicWarehouseIds = await koala.Warehouses
+                    .Where(w => !koala.WarehouseInRoles.Any(wr => wr.WarehouseId == w.Id))
+                    .Select(w => w.Id)
+                    .ToListAsync();
+
+                var allAccessibleIds = accessibleWarehouseIds.Concat(publicWarehouseIds).Distinct().ToList();
+                query = query.Where(x => allAccessibleIds.Contains(x.Id));
+            }
+        }
+        else if (string.IsNullOrEmpty(currentUserId))
+        {
+            // 未登录用户只能看到公共仓库
+            var publicWarehouseIds = await koala.Warehouses
+                .Where(w => !koala.WarehouseInRoles.Any(wr => wr.WarehouseId == w.Id))
+                .Select(w => w.Id)
+                .ToListAsync();
+
+            query = query.Where(x => publicWarehouseIds.Contains(x.Id));
+        }
+        // 管理员可以看到所有仓库，不需要额外过滤
 
         // 按仓库名称和组织名称分组，保持排序一致性
         var groupedQuery = query
@@ -602,11 +925,10 @@ public class WarehouseService(IKoalaWikiContext access, IMapper mapper, GitRepos
                 repository.Stars = info.Stars;
                 repository.Forks = info.Forks;
                 repository.AvatarUrl = info.AvatarUrl;
-                if (string.IsNullOrEmpty(repository.Description))
+                if (!string.IsNullOrEmpty(info.Description))
                 {
                     repository.Description = info.Description;
                 }
-
                 repository.OwnerUrl = info.OwnerUrl;
                 repository.Language = info.Language;
                 repository.License = info.License;
@@ -625,7 +947,13 @@ public class WarehouseService(IKoalaWikiContext access, IMapper mapper, GitRepos
     [EndpointSummary("获取指定仓库代码文件")]
     public async Task<ResultDto<string>> GetFileContent(string warehouseId, string path)
     {
-        var query = await access.Documents
+        // 检查用户权限
+        if (!await CheckWarehouseAccessAsync(warehouseId))
+        {
+            throw new UnauthorizedAccessException("您没有权限访问此仓库");
+        }
+
+        var query = await koala.Documents
             .AsNoTracking()
             .Where(x => x.WarehouseId == warehouseId)
             .FirstOrDefaultAsync();
@@ -645,9 +973,22 @@ public class WarehouseService(IKoalaWikiContext access, IMapper mapper, GitRepos
     /// <summary>
     /// 导出Markdown压缩包
     /// </summary>
+    [EndpointSummary("导出Markdown压缩包")]
     public async Task ExportMarkdownZip(string warehouseId, HttpContext context)
     {
-        var query = await access.Warehouses
+        // 检查用户权限
+        if (!await CheckWarehouseAccessAsync(warehouseId))
+        {
+            context.Response.StatusCode = 403;
+            await context.Response.WriteAsJsonAsync(new
+            {
+                code = 403,
+                message = "您没有权限访问此仓库"
+            });
+            return;
+        }
+
+        var query = await koala.Warehouses
             .AsNoTracking()
             .Where(x => x.Id == warehouseId)
             .FirstOrDefaultAsync();
@@ -660,12 +1001,12 @@ public class WarehouseService(IKoalaWikiContext access, IMapper mapper, GitRepos
         var fileName = $"{query.Name}.zip";
 
         // 先获取当前仓库所有目录
-        var documents = await access.Documents
+        var documents = await koala.Documents
             .AsNoTracking()
             .Where(x => x.WarehouseId == warehouseId)
             .FirstOrDefaultAsync();
 
-        var documentCatalogs = await access.DocumentCatalogs
+        var documentCatalogs = await koala.DocumentCatalogs
             .AsNoTracking()
             .Where(x => x.WarehouseId == warehouseId && x.IsDeleted == false)
             .ToListAsync();
@@ -673,7 +1014,7 @@ public class WarehouseService(IKoalaWikiContext access, IMapper mapper, GitRepos
         var catalogsIds = documentCatalogs.Select(x => x.Id).ToList();
 
         // 获取所有文档条目
-        var fileItems = await access.DocumentFileItems
+        var fileItems = await koala.DocumentFileItems
             .AsNoTracking()
             .Where(x => catalogsIds.Contains(x.DocumentCatalogId))
             .ToListAsync();
@@ -682,7 +1023,7 @@ public class WarehouseService(IKoalaWikiContext access, IMapper mapper, GitRepos
         using (var archive = new ZipArchive(memoryStream, ZipArchiveMode.Create, true))
         {
             // 添加仓库概述文件
-            var overview = await access.DocumentOverviews
+            var overview = await koala.DocumentOverviews
                 .FirstOrDefaultAsync(x => x.DocumentId == documents.Id);
 
             if (overview != null)
@@ -745,5 +1086,49 @@ public class WarehouseService(IKoalaWikiContext access, IMapper mapper, GitRepos
 
         // 将zip文件流写入响应
         await memoryStream.CopyToAsync(context.Response.Body);
+    }
+
+
+    /// <summary>
+    /// 获取指定组织下仓库的指定文件代码内容
+    /// </summary>
+    /// <returns></returns>
+    [EndpointSummary("获取指定组织下仓库的指定文件代码内容")]
+    public async Task<ResultDto<string>> GetFileContentLineAsync(string organizationName, string name, string filePath,
+        int startLine = 0, int endLine = 0)
+    {
+        if (string.IsNullOrEmpty(organizationName) || string.IsNullOrEmpty(name) || string.IsNullOrEmpty(filePath))
+        {
+            throw new ArgumentException("Organization name, warehouse name and file path cannot be null or empty.");
+        }
+
+        // 查找仓库
+        var warehouse = await koala.Warehouses
+            .AsNoTracking()
+            .FirstOrDefaultAsync(x =>
+                x.OrganizationName.ToLower() == organizationName.ToLower() &&
+                x.Name.ToLower() == name.ToLower());
+
+        if (warehouse == null)
+        {
+            throw new Exception("Warehouse not found");
+        }
+
+        // 查找文档
+        var document = await koala.Documents
+            .AsNoTracking()
+            .Where(x => x.WarehouseId == warehouse.Id)
+            .FirstOrDefaultAsync();
+
+        if (document == null)
+        {
+            throw new Exception("Document not found");
+        }
+
+        var fileFunction = new FileFunction(document.GitPath);
+
+        var value = await fileFunction.ReadItem(filePath, startLine, endLine);
+
+        return ResultDto<string>.Success(value);
     }
 }

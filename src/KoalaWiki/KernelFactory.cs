@@ -99,7 +99,7 @@ public static class KernelFactory
         }
 
         var kernel = kernelBuilder.Build();
-
+        kernel.FunctionInvocationFilters.Add(new FunctionResultInterceptor());
         return kernel;
     }
 }

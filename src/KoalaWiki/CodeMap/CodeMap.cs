@@ -21,7 +21,7 @@ namespace KoalaWiki.CodeMap
             _basePath = basePath;
             
             // 注册传统解析器（作为回退）
-            _parsers.Add(new CSharpParser());
+            // _parsers.Add(new CSharpParser());
             _parsers.Add(new JavaScriptParser());
             _parsers.Add(new PythonParser());
             _parsers.Add(new JavaParser());
@@ -417,7 +417,7 @@ namespace KoalaWiki.CodeMap
             
             return extension switch
             {
-                ".cs" => _parsers.FirstOrDefault(p => p is CSharpParser),
+                // ".cs" => _parsers.FirstOrDefault(p => p is CSharpParser),
                 ".js" => _parsers.FirstOrDefault(p => p is JavaScriptParser),
                 ".py" => _parsers.FirstOrDefault(p => p is PythonParser),
                 ".java" => _parsers.FirstOrDefault(p => p is JavaParser),

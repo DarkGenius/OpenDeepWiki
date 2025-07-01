@@ -25,4 +25,25 @@ public class DocumentContext
 public class DocumentStore
 {
     public List<string> Files { get; set; } = new();
+
+    public List<GitIssusItem> GitIssus { get; set; } = new();
+}
+
+public class GitIssusItem
+{
+    public string Title { get; set; }
+
+    public string Url { get; set; }
+
+    public string Content { get; set; }
+
+    public DateTime? CreatedAt { get; set; }
+
+    public string Author { get; set; }
+    
+    public string UrlHtml { get; set; }
+
+    public string State { get; set; }
+
+    public string Number { get; set; }
 }

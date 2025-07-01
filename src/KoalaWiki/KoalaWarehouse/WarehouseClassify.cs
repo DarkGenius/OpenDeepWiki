@@ -1,13 +1,10 @@
 ﻿using System.ClientModel.Primitives;
-using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using KoalaWiki.Domains;
 using KoalaWiki.Dto;
 using KoalaWiki.Prompts;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.Connectors.OpenAI;
-using Newtonsoft.Json;
-using OpenAI.Chat;
 using JsonSerializer = System.Text.Json.JsonSerializer;
 
 namespace KoalaWiki.KoalaWarehouse;

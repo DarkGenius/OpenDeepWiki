@@ -2,7 +2,7 @@ import { MetadataRoute } from 'next';
 import { getWarehouse } from './services/warehouseService';
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://koalawiki.com';
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://opendeep.wiki';
   
   // 基础页面
   const staticPages: MetadataRoute.Sitemap = [
