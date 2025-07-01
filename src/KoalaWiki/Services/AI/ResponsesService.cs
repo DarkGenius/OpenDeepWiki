@@ -2,6 +2,7 @@
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Web;
 using FastService;
 using KoalaWiki.Dto;
 using KoalaWiki.Functions;
@@ -25,11 +26,15 @@ public class ResponsesService(IKoalaWikiContext koala) : FastApi
     [HttpPost("/api/Responses")]
     public async Task ExecuteAsync(HttpContext context, ResponsesInput input)
     {
+        // URL decode parameters
+        var decodedOrganizationName = HttpUtility.UrlDecode(input.OrganizationName);
+        var decodedName = HttpUtility.UrlDecode(input.Name);
+        
         var warehouse = await koala.Warehouses
             .AsNoTracking()
             .FirstOrDefaultAsync(x =>
-                x.OrganizationName.ToLower() == input.OrganizationName.ToLower() &&
-                x.Name.ToLower() == input.Name.ToLower());
+                x.OrganizationName.ToLower() == decodedOrganizationName.ToLower() &&
+                x.Name.ToLower() == decodedName.ToLower());
 
         if (warehouse == null)
         {
@@ -58,7 +63,6 @@ public class ResponsesService(IKoalaWikiContext koala) : FastApi
             });
             return;
         }
-
 
         // 解析仓库的目录结构
         var path = document.GitPath;
