@@ -3,6 +3,7 @@ using KoalaWiki.Core.DataAccess;
 using KoalaWiki.Domains;
 using KoalaWiki.Dto;
 using Microsoft.EntityFrameworkCore;
+using System.Web;
 
 namespace KoalaWiki.Services;
 
@@ -50,9 +51,18 @@ public class ChatShareMessageService(IKoalaWikiContext koalaWikiContext,IUserCon
             ip = realIp.ToString();
         }
 
+        // URL-декодирование параметров
+        var decodedOwner = HttpUtility.UrlDecode(input.Owner);
+        var decodedName = HttpUtility.UrlDecode(input.Name);
+        
         var warehouse = await koalaWikiContext.Warehouses
             .AsNoTracking()
-            .FirstOrDefaultAsync(x => x.OrganizationName == input.Owner && x.Name == input.Name);
+            .FirstOrDefaultAsync(x => x.OrganizationName == decodedOwner && x.Name == decodedName);
+
+        if (warehouse == null)
+        {
+            throw new Exception($"Хранилище с Owner='{decodedOwner}' и Name='{decodedName}' не найдено");
+        }
 
         var chatShareMessage = new ChatShareMessage
         {
