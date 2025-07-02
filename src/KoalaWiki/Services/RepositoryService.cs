@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Web;
 using FastService;
 using KoalaWiki.Domains;
 using KoalaWiki.Domains.DocumentFile;
@@ -295,10 +296,14 @@ public class RepositoryService(
         var names = createDto.Address.Split('/');
         var repositoryName = names[^1].Replace(".git", "");
 
+        // URL decode parameters
+        var decodedOrganization = HttpUtility.UrlDecode(organization);
+        var decodedRepositoryName = HttpUtility.UrlDecode(repositoryName);
+
         // 检查仓库是否已存在
         var existingRepo = await dbContext.Warehouses.FirstOrDefaultAsync(x =>
-            x.OrganizationName == organization &&
-            x.Name == repositoryName &&
+            x.OrganizationName == decodedOrganization &&
+            x.Name == decodedRepositoryName &&
             x.Branch == createDto.Branch);
 
         // 判断这个仓库是否已经添加
@@ -319,8 +324,8 @@ public class RepositoryService(
             var branch = await dbContext.Warehouses
                 .AsNoTracking()
                 .Where(x => x.Branch == createDto.Branch &&
-                            x.OrganizationName == organization &&
-                            x.Name == repositoryName)
+                            x.OrganizationName == decodedOrganization &&
+                            x.Name == decodedRepositoryName)
                 .FirstOrDefaultAsync();
 
             if (branch != null)
@@ -331,8 +336,8 @@ public class RepositoryService(
 
         // 删除旧的仓库（如果存在）
         await dbContext.Warehouses
-            .Where(x => x.OrganizationName == organization &&
-                        x.Name == repositoryName &&
+            .Where(x => x.OrganizationName == decodedOrganization &&
+                        x.Name == decodedRepositoryName &&
                         x.Branch == createDto.Branch)
             .ExecuteDeleteAsync();
 
@@ -340,8 +345,8 @@ public class RepositoryService(
         var entity = new Warehouse
         {
             Id = Guid.NewGuid().ToString(),
-            OrganizationName = organization,
-            Name = repositoryName,
+            OrganizationName = decodedOrganization,
+            Name = decodedRepositoryName,
             Address = createDto.Address,
             Description = string.Empty,
             Version = string.Empty,
