@@ -3,22 +3,23 @@
     image: crpi-j9ha7sxwhatgtvj4.cn-shenzhen.personal.cr.aliyuncs.com/koala-ai/koala-wiki
     environment:
       - KOALAWIKI_REPOSITORIES=/repositories
-      - TASK_MAX_SIZE_PER_USER=5 # 每个用户AI处理文档生成的最大数量
-      - REPAIR_MERMAID=1 # 是否进行Mermaid修复，1修复，其余不修复
-      - CHAT_MODEL=DeepSeek-V3 # 必须要支持function的模型
-      - ANALYSIS_MODEL= # 分析模型，用于生成仓库目录结构，这个很重要，模型越强，生成的目录结构越好，为空则使用ChatModel
-                        # 分析模型建议使用GPT-4.1  , CHAT模型可以用其他模型生成文档,以节省 token 开销
-      - CHAT_API_KEY= #您的APIkey
-      - LANGUAGE= # 设置生成语言默认为“中文”, 英文可以填写 English 或 英文
-      - ENDPOINT=https://api.token-ai.cn/v1
+      - TASK_MAX_SIZE_PER_USER=5 # Maximum number of AI-processed document generations per user
+      - REPAIR_MERMAID=1 # Whether to perform Mermaid repair, 1 for repair, others for no repair
+      - CHAT_MODEL=gpt-4.1 # Must be a model that supports functions
+      - ANALYSIS_MODEL=gpt-4.1 # Analysis model for generating repository directory structure, this is important, stronger models generate better directory structures, if empty uses ChatModel
+                        # Analysis model recommended to use GPT-4.1, CHAT model can use other models to generate documents to save token costs
+      - CHAT_API_KEY= # Your API key
+      - LANGUAGE=English # Set generation language default to 'English', for Chinese can fill in Chinese or 中文
+      - ENDPOINT= # OpenAI API endpoint
       - DB_TYPE=sqlite
       - DB_CONNECTION_STRING=Data Source=/data/KoalaWiki.db
-      - UPDATE_INTERVAL=5 # 仓库增量更新间隔，单位天
-      - EnableSmartFilter=true # 是否启用智能过滤，这可能影响AI得到仓库的文件目录
-      - ENABLE_INCREMENTAL_UPDATE=true # 是否启用增量更新
-      - ENABLE_CODED_DEPENDENCY_ANALYSIS=false # 是否启用代码依赖分析？这可能会对代码的质量产生影响。
-      - ENABLE_WAREHOUSE_FUNCTION_PROMPT_TASK=false # 是否启用MCP Prompt生成
-      - ENABLE_WAREHOUSE_DESCRIPTION_TASK=false # 是否启用仓库Description生成
+      - UPDATE_INTERVAL=5 # Repository incremental update interval, in days
+      - EnableSmartFilter=true # Whether to enable smart filtering, this may affect the file directory that AI gets from the repository
+      - ENABLE_INCREMENTAL_UPDATE=true # Whether to enable incremental updates
+      - ENABLE_CODED_DEPENDENCY_ANALYSIS=false # Whether to enable code dependency analysis? This may affect code quality.
+      - ENABLE_WAREHOUSE_FUNCTION_PROMPT_TASK=true # Whether to enable MCP Prompt generation
+      - ENABLE_WAREHOUSE_DESCRIPTION_TASK=true # Whether to enable repository Description generation
+      - MAX_FILE_LIMIT=512 # Maximum file size limit in MB for uploads
     volumes:
       - ./repositories:/app/repositories
       - ./data:/data
@@ -34,7 +35,7 @@
       context: ./web
       dockerfile: Dockerfile
       
-  nginx: # 需要nginx将前端和后端代理到一个端口
+  nginx: # Need nginx to proxy frontend and backend to one port
     image: crpi-j9ha7sxwhatgtvj4.cn-shenzhen.personal.cr.aliyuncs.com/koala-ai/nginx:alpine
     ports:
       - 8090:80

@@ -1,3 +1,4 @@
+import React from "react";
 import { ChatItem } from "@lobehub/ui/chat";
 import { GitIssueItem, MessageItem } from "../../../../types/chat";
 import { Button, message, Modal, Spin, Tag, Tooltip } from "antd";
@@ -8,6 +9,9 @@ import { useState } from "react";
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vs } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { getFileContentByLine } from "../../../../services/warehouseService";
+
+// Typed SyntaxHighlighter for React 19
+const TypedSyntaxHighlighter = SyntaxHighlighter as React.ComponentType<any>;
 
 interface AssistantMessageProps {
     messageItem: MessageItem;
@@ -394,7 +398,7 @@ export default function AssistantMessage({ messageItem, handleDelete,
                                                             />
                                                         </Tooltip>
                                                     </div>
-                                                    <SyntaxHighlighter
+                                                    <TypedSyntaxHighlighter
                                                         language={language}
                                                         style={vs}
                                                         showLineNumbers={true}
@@ -413,7 +417,7 @@ export default function AssistantMessage({ messageItem, handleDelete,
                                                         }}
                                                     >
                                                         {content}
-                                                    </SyntaxHighlighter>
+                                                    </TypedSyntaxHighlighter>
                                                 </div>
                                             )}
                                         </div>
@@ -1195,7 +1199,7 @@ export default function AssistantMessage({ messageItem, handleDelete,
                         height: '80vh',
                         overflow: 'auto',
                     }}>
-                        <SyntaxHighlighter
+                        <TypedSyntaxHighlighter
                             language={fullScreenFile.language}
                             style={vs}
                             showLineNumbers={true}
@@ -1216,7 +1220,7 @@ export default function AssistantMessage({ messageItem, handleDelete,
                             }}
                         >
                             {fullScreenFile.content}
-                        </SyntaxHighlighter>
+                        </TypedSyntaxHighlighter>
                     </div>
                 )}
             </Modal>
