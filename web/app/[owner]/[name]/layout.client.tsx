@@ -101,6 +101,15 @@ export default function RepositoryLayoutClient({
   initialLastUpdated,
   children,
 }: RepositoryLayoutClientProps) {
+  // Helper function to safely decode URI components
+  const safeDecodeURIComponent = (str: string): string => {
+    try {
+      return decodeURIComponent(str);
+    } catch (error) {
+      console.warn('Failed to decode URI component:', str, error);
+      return str;
+    }
+  };
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const { token } = theme.useToken();
@@ -253,10 +262,10 @@ export default function RepositoryLayoutClient({
         title: <Link href="/"><HomeOutlined /></Link>,
       },
       {
-        title: <Link href={`/${owner}`}>{owner}</Link>,
+        title: <Link href={`/${owner}`}>{safeDecodeURIComponent(owner)}</Link>,
       },
       {
-        title: <Link href={selectedBranch ? `/${owner}/${name}?branch=${selectedBranch}` : `/${owner}/${name}`}>{name}</Link>,
+        title: <Link href={selectedBranch ? `/${owner}/${name}?branch=${selectedBranch}` : `/${owner}/${name}`}>{safeDecodeURIComponent(name)}</Link>,
       }
     ];
 
@@ -358,7 +367,7 @@ export default function RepositoryLayoutClient({
                   style={{
                     cursor: 'pointer',
                   }}>
-                  {owner}/{name}
+                  {safeDecodeURIComponent(owner)}/{safeDecodeURIComponent(name)}
                 </span>
               </Typography.Title>
               

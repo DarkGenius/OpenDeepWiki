@@ -54,6 +54,16 @@ export default function OrganizationPage({ params }: any) {
   const pathParts = pathname.split('/').filter(Boolean);
   const owner = pathParts[0] || '';
 
+  // Helper function to safely decode URI components
+  const safeDecodeURIComponent = (str: string): string => {
+    try {
+      return decodeURIComponent(str);
+    } catch (error) {
+      console.warn('Failed to decode URI component:', str, error);
+      return str;
+    }
+  };
+
   const [repositories, setRepositories] = useState<Repository[]>([]);
   // const [filteredRepositories, setFilteredRepositories] = useState<Repository[]>([]);
   const [loading, setLoading] = useState(true);
@@ -179,7 +189,7 @@ export default function OrganizationPage({ params }: any) {
         <Breadcrumb
           items={[
             { title: <Link href="/"><HomeOutlined /></Link> },
-            { title: owner }
+            { title: safeDecodeURIComponent(owner) }
           ]}
           style={{ marginBottom: token.marginMD }}
         />
@@ -207,7 +217,7 @@ export default function OrganizationPage({ params }: any) {
                 <div>
                   <Space align="center">
                     <Title level={2} style={{ margin: 0, color: token.colorTextHeading }}>
-                      {orgInfo?.name || owner}
+                      {orgInfo?.name || safeDecodeURIComponent(owner)}
                     </Title>
                     <Tag color="blue" icon={orgInfo?.isUser ? <UserOutlined /> : <TeamOutlined />}>
                       {orgInfo?.isUser ? t('organization.tags.personal_user') : t('organization.tags.organization')}
@@ -347,9 +357,9 @@ export default function OrganizationPage({ params }: any) {
         >
           <Row gutter={[24, 24]}>
             <Col xs={24} md={16}>
-              <Title level={4}>{t('organization.docs.about_title', { name: orgInfo?.name || owner })}</Title>
+              <Title level={4}>{t('organization.docs.about_title', { name: orgInfo?.name || safeDecodeURIComponent(owner) })}</Title>
               <Paragraph>
-                {orgInfo?.description || orgInfo?.bio || t('organization.default_description', { name: owner })}
+                {orgInfo?.description || orgInfo?.bio || t('organization.default_description', { name: safeDecodeURIComponent(owner) })}
               </Paragraph>
 
               <Divider style={{ margin: `${token.marginMD}px 0` }} />
@@ -367,7 +377,7 @@ export default function OrganizationPage({ params }: any) {
                         <div>
                           <Text strong>{t('organization.docs.github_homepage')}</Text>
                           <Paragraph type="secondary" style={{ marginBottom: 0 }}>
-                            {t('organization.docs.visit_github', { name: owner })}
+                            {t('organization.docs.visit_github', { name: safeDecodeURIComponent(owner) })}
                           </Paragraph>
                         </div>
                       </Space>
@@ -534,7 +544,7 @@ export default function OrganizationPage({ params }: any) {
             <Card style={{ background: token.colorBgContainer, borderRadius: token.borderRadiusLG }}>
               <Empty
                 description={
-                  searchValue ? t('organization.repo_list.not_found', { keyword: searchValue }) : t('organization.repo_list.empty_message', { owner })
+                  searchValue ? t('organization.repo_list.not_found', { keyword: searchValue }) : t('organization.repo_list.empty_message', { owner: safeDecodeURIComponent(owner) })
                 }
                 image={Empty.PRESENTED_IMAGE_SIMPLE}
               />
